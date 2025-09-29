@@ -5,11 +5,12 @@ const cors = require("cors");
 const path = require("path");
 
 const app = express();
-const port = 5000;
-
+const port = process.env.PORT || 5000;
 // Middleware
 app.use(express.json());
-app.use(cors({ origin: "http://localhost:5173" }));
+// Allow origin from FRONTEND_URL env var (set this in Render to your frontend URL) or default to localhost for dev
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+app.use(cors({ origin: FRONTEND_URL }));
 
 // Serve images
 app.get('/upload/images/:imageName', (req, res, next) => {
@@ -43,7 +44,9 @@ app.get('/upload/images/:imageName', (req, res, next) => {
 app.use("/upload/images", express.static(path.join(__dirname, "upload/images")));
 
 // Connect to MongoDB
-mongoose.connect("mongodb+srv://pranesh:123@demo.wfefywo.mongodb.net/snacksdb?retryWrites=true&w=majority")
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://pranesh:123@demo.wfefywo.mongodb.net/snacksdb?retryWrites=true&w=majority';
+
+mongoose.connect(MONGO_URI)
   .then(() => console.log("✅ MongoDB connected"))
   .catch(err => console.log("❌ MongoDB connection error:", err));
 
@@ -220,5 +223,8 @@ app.delete("/api/cart/:userId/clear", async (req, res) => {
   }
 });
 
+// Health check
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
 // Start server
-app.listen(port, () => console.log(`🚀 Server running on http://localhost:${port}`));
+app.listen(port, () => console.log(`🚀 Server running on port ${port} (env PORT=${process.env.PORT || ''}) - CORS allowed for ${FRONTEND_URL}`));
