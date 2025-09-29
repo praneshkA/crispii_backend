@@ -1,17 +1,12 @@
-// backend/routes/products.js
-const express = require("express");
-const Products = require("../ProductData"); // your ProductData.js
-const router = express.Router();
+const mongoose = require('mongoose');
 
-// GET /api/products?category=Kaaram
-router.get("/", (req, res) => {
-  const category = req.query.category;
-  if (category) {
-    const filtered = Products.filter((p) => p.category === category);
-    res.json(filtered);
-  } else {
-    res.json(Products);
-  }
+const productSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  category: { type: String },
+  image: { type: String },
+  price: { type: Number }
 });
 
-module.exports = router;
+module.exports = mongoose.models && mongoose.models.Product
+  ? mongoose.models.Product
+  : mongoose.model('Product', productSchema);
