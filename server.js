@@ -5,12 +5,53 @@ const cors = require("cors");
 const path = require("path");
 
 const app = express();
-const port = process.env.PORT || 5000;
+const port = 5000;
+
 // Middleware
 app.use(express.json());
-// Allow origin from FRONTEND_URL env var (set this in Render to your frontend URL) or default to localhost for dev
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
-app.use(cors({ origin: FRONTEND_URL }));
+
+// CORS Configuration - support FRONTEND_URL or FRONTEND_URLS (comma-separated)
+const defaultFrontends = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://localhost:5174',
+  'http://192.168.43.29:5173', // Local network IP
+  'https://crispii.netlify.app',
+  'http://crispii.netlify.app'
+];
+
+const rawFrontends = process.env.FRONTEND_URLS || process.env.FRONTEND_URL || defaultFrontends.join(',');
+const allowedList = rawFrontends.split(',').map(s => s.trim()).filter(Boolean);
+
+// Normalize entries to full origins when scheme missing (add http and https variants)
+const normalizedOrigins = allowedList.flatMap(entry => {
+  if (!entry) return [];
+  const e = entry.replace(/\/$/, '');
+  if (/^https?:\/\//i.test(e)) return [e];
+  return [`http://${e}`, `https://${e}`];
+});
+
+// Simple CORS setup: allow requests from local dev and the deployed frontend
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'http://localhost:5173', // for local testing
+  'https://crispii.netlify.app' // deployed frontend
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // allow non-browser requests
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn('Blocked origin by CORS:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // Serve images
 app.get('/upload/images/:imageName', (req, res, next) => {
@@ -44,9 +85,7 @@ app.get('/upload/images/:imageName', (req, res, next) => {
 app.use("/upload/images", express.static(path.join(__dirname, "upload/images")));
 
 // Connect to MongoDB
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://pranesh:123@demo.wfefywo.mongodb.net/snacksdb?retryWrites=true&w=majority';
-
-mongoose.connect(MONGO_URI)
+mongoose.connect("mongodb+srv://pranesh:123@demo.wfefywo.mongodb.net/snacksdb?retryWrites=true&w=majority")
   .then(() => console.log("✅ MongoDB connected"))
   .catch(err => console.log("❌ MongoDB connection error:", err));
 
@@ -223,8 +262,5 @@ app.delete("/api/cart/:userId/clear", async (req, res) => {
   }
 });
 
-// Health check
-app.get('/health', (req, res) => res.json({ status: 'ok' }));
-
 // Start server
-app.listen(port, () => console.log(`🚀 Server running on port ${port} (env PORT=${process.env.PORT || ''}) - CORS allowed for ${FRONTEND_URL}`));
+app.listen(port, () => console.log(`🚀 Server running on http://localhost:${port}`));
