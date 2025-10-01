@@ -1,151 +1,96 @@
-// backend/server.js
+require('dotenv').config(); // Make sure .env is loaded
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const path = require("path");
 
 const app = express();
-const port = 5000;
-
+const port = process.env.PORT || 5000;
+app.use(cors());
 // Middleware
 app.use(express.json());
 
-// CORS Configuration - support FRONTEND_URL or FRONTEND_URLS (comma-separated)
-const defaultFrontends = [
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'http://localhost:5174',
-  'http://192.168.43.29:5173', // Local network IP
-  'https://crispii.netlify.app',
-  'http://crispii.netlify.app'
-];
+// CORS Setup - build a normalized allowlist (accept hostnames with/without scheme)
+// Build allowedOriginsSet including your deployed frontend URLs and localhost URLs
+let rawFrontends = process.env.FRONTEND_URLS || '';
+const allowedOriginsSet = new Set();
 
-const rawFrontends = process.env.FRONTEND_URLS || process.env.FRONTEND_URL || defaultFrontends.join(',');
-const allowedList = rawFrontends.split(',').map(s => s.trim()).filter(Boolean);
+rawFrontends
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean)
+  .forEach(entry => {
+    try {
+      if (/^https?:\/\//i.test(entry)) {
+        const u = new URL(entry);
+        allowedOriginsSet.add(u.origin);
+      } else {
+        allowedOriginsSet.add(`https://${entry}`);
+        allowedOriginsSet.add(`http://${entry}`);
+      }
+    } catch (e) {
+      allowedOriginsSet.add(entry);
+    }
+  });
 
-// Normalize entries to full origins when scheme missing (add http and https variants)
-const normalizedOrigins = allowedList.flatMap(entry => {
-  if (!entry) return [];
-  const e = entry.replace(/\/$/, '');
-  if (/^https?:\/\//i.test(e)) return [e];
-  return [`http://${e}`, `https://${e}`];
-});
-
-// Simple CORS setup: allow requests from local dev and the deployed frontend
-const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:5173', // for local testing
-  'https://crispii.netlify.app' // deployed frontend
-];
+// Add localhost URLs explicitly so local frontend can access backend
+['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000', 'http://127.0.0.1:3000']
+  .forEach(o => allowedOriginsSet.add(o));
 
 app.use(cors({
   origin: function (origin, callback) {
-    // allow non-browser requests
+    // Allow requests with no origin (like Postman or curl)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
+
+    if (allowedOriginsSet.has(origin)) {
+      return callback(null, true);
     } else {
-      console.warn('Blocked origin by CORS:', origin);
-      callback(new Error('Not allowed by CORS'));
+      console.warn("❌ Blocked origin by CORS:", origin);
+      return callback(new Error("Not allowed by CORS"));
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+
 // Serve images
-app.get('/upload/images/:imageName', (req, res, next) => {
-  const fs = require('fs');
-  const imageName = decodeURIComponent(req.params.imageName || '');
-  const imagesDir = path.join(__dirname, 'upload/images');
-
-  const variants = new Set();
-  variants.add(imageName);
-  variants.add(imageName.replace(/_/g, ' '));
-  variants.add(imageName.replace(/ /g, '_'));
-  variants.add(imageName.toLowerCase());
-  variants.add(imageName.toUpperCase());
-
-  const title = imageName
-    .split(/[-_ ]+/)
-    .map(s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase())
-    .join(' ');
-  variants.add(title);
-
-  for (const v of variants) {
-    const candidate = path.join(imagesDir, v);
-    if (fs.existsSync(candidate)) {
-      return res.sendFile(candidate);
-    }
-  }
-
-  next();
-});
-
 app.use("/upload/images", express.static(path.join(__dirname, "upload/images")));
 
-// Connect to MongoDB
-mongoose.connect("mongodb+srv://pranesh:123@demo.wfefywo.mongodb.net/snacksdb?retryWrites=true&w=majority")
+// MongoDB connection
+mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("✅ MongoDB connected"))
   .catch(err => console.log("❌ MongoDB connection error:", err));
 
-// Product Schema
-const productSchema = new mongoose.Schema({
-  name: String,
-  category: String,
-  image: String,
-  price: Number,
-});
+// Schemas
+const productSchema = new mongoose.Schema({ name: String, category: String, image: String, price: Number });
 const Product = mongoose.model("Product", productSchema);
 
-// Cart Schema
 const cartItemSchema = new mongoose.Schema({
   productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
-  name: String,
-  image: String,
-  selectedQuantity: String,
-  price: Number,
+  name: String, image: String, selectedQuantity: String, price: Number,
   quantity: { type: Number, default: 1 },
   addedAt: { type: Date, default: Date.now }
 });
-
-const cartSchema = new mongoose.Schema({
-  userId: { type: String, default: 'guest' }, // For guest users
-  items: [cartItemSchema],
-  updatedAt: { type: Date, default: Date.now }
-});
-
+const cartSchema = new mongoose.Schema({ userId: { type: String, default: 'guest' }, items: [cartItemSchema], updatedAt: { type: Date, default: Date.now } });
 const Cart = mongoose.model("Cart", cartSchema);
 
-// API: Get products (all or by category)
+// APIs (same as before)
 app.get("/api/products", async (req, res) => {
   try {
-    const category = req.query.category;
-    const query = category ? { category } : {};
+    const query = req.query.category ? { category: req.query.category } : {};
     const products = await Product.find(query);
     res.json(products);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// API: Get cart items
 app.get("/api/cart/:userId", async (req, res) => {
   try {
     const userId = req.params.userId || 'guest';
     let cart = await Cart.findOne({ userId });
-    
-    if (!cart) {
-      cart = new Cart({ userId, items: [] });
-      await cart.save();
-    }
-    
+    if (!cart) { cart = new Cart({ userId, items: [] }); await cart.save(); }
     res.json(cart.items);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 // API: Add to cart
 app.post("/api/cart/:userId/add", async (req, res) => {
   try {
