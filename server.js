@@ -60,13 +60,31 @@ app.post('/api/login', async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({ success: false, message: 'Email and password are required' });
     }
-
+    console.log('[login] attempt for email:', email);
     const user = await User.findOne({ email });
     if (!user) {
+      console.warn('[login] user not found for email:', email);
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    const valid = await bcrypt.compare(password, user.password);
+    // Defensive checks for password field
+    if (!user.password) {
+      console.error('[login] user record missing password field for:', email, 'user:', user._id);
+      return res.status(500).json({ success: false, message: 'User password not set. Contact support.' });
+    }
+
+    // Ensure values are strings before comparing
+    const provided = typeof password === 'string' ? password : String(password);
+    const stored = typeof user.password === 'string' ? user.password : String(user.password);
+
+    let valid;
+    try {
+      valid = await bcrypt.compare(provided, stored);
+    } catch (bcryptErr) {
+      console.error('[login] bcrypt.compare error for user:', user._id, bcryptErr);
+      return res.status(500).json({ success: false, message: 'Error verifying credentials' });
+    }
+
     if (!valid) {
       return res.status(401).json({ success: false, message: 'Invalid password' });
     }
