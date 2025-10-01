@@ -7,6 +7,8 @@ const path = require("path");
 const app = express();
 const port = process.env.PORT || 5000;
 app.use(cors());
+const secretKey = process.env.JWT_SECRET;
+
 // Middleware
 app.use(express.json());
 
@@ -60,6 +62,37 @@ app.use("/upload/images", express.static(path.join(__dirname, "upload/images")))
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("✅ MongoDB connected"))
   .catch(err => console.log("❌ MongoDB connection error:", err));
+
+//login/signup
+  app.post("/api/login", async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ success: false, message: "Email and password are required" });
+
+  const user = await User.findOne({ email });
+  if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+  const valid = await bcrypt.compare(password, user.password);
+  if (!valid) return res.status(401).json({ success: false, message: "Invalid password" });
+
+  const token = jwt.sign({ userId: user._id }, secretKey, { expiresIn: "1h" });
+  res.json({ success: true, token, userId: user._id });
+});
+
+// Protected route example
+const verifyToken = (req, res, next) => {
+  const token = req.headers['authorization']?.split(" ")[1];
+  if (!token) return res.status(401).json({ success: false, message: "No token provided" });
+  
+  jwt.verify(token, secretKey, (err, decoded) => {
+    if (err) return res.status(403).json({ success: false, message: "Token invalid" });
+    req.userId = decoded.userId;
+    next();
+  });
+};
+
+app.get("/api/protected", verifyToken, (req, res) => {
+  res.json({ success: true, message: "You accessed a protected route", userId: req.userId });
+});
 
 // Schemas
 const productSchema = new mongoose.Schema({ name: String, category: String, image: String, price: Number });

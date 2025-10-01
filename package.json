@@ -7,11 +7,11 @@
     "bcrypt": "^6.0.0",
     "cloudinary": "^2.7.0",
     "cors": "^2.8.5",
-    "dotenv": "^17.2.2",
+    "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "firebase-admin": "^13.5.0",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.18.2",
+    "mongoose": "^8.18.3",
     "multer": "^2.0.2"
   },
   "devDependencies": {
@@ -22,5 +22,15 @@
     "dev": "nodemon server.js"
   },
   "author": "Your Name",
-  "license": "ISC"
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/praneshkA/crispii_backend.git"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/praneshkA/crispii_backend/issues"
+  },
+  "homepage": "https://github.com/praneshkA/crispii_backend#readme"
 }
