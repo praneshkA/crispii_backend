@@ -78,6 +78,20 @@ mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopol
   res.json({ success: true, token, userId: user._id });
 });
 
+app.post("/api/signup", async (req, res) => {
+  const { username, email, password } = req.body;
+  if (!username || !email || !password) return res.status(400).json({ success: false, message: "All fields are required" });
+
+  const exists = await User.findOne({ email });
+  if (exists) return res.status(409).json({ success: false, message: "User already exists" });
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+  const newUser = new User({ username, email, password: hashedPassword });
+  await newUser.save();
+
+  const token = jwt.sign({ userId: newUser._id }, secretKey, { expiresIn: "1h" });
+  res.json({ success: true, token });
+});
 // Protected route example
 const verifyToken = (req, res, next) => {
   const token = req.headers['authorization']?.split(" ")[1];
