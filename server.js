@@ -20,6 +20,7 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://127.0.0.1:3000',
   // Add your deployed frontend URLs here
+  'https://crispii.netlify.app',
 ];
 app.use(cors({
   origin: (origin, callback) => {
