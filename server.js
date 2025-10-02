@@ -18,7 +18,7 @@ app.use(express.json());
 // Update your parser limits here if you expect large payloads
 // app.use(express.json({ limit: '5mb' }));
 
-app.use(cors({
+const corsOptions = {
   origin: [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
@@ -29,7 +29,10 @@ app.use(cors({
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
-}));
+};
+
+// Enable CORS preflight automatically for all routes
+app.use(cors(corsOptions));
 
 app.use('/upload/images', express.static(path.join(__dirname, 'upload/images')));
 
