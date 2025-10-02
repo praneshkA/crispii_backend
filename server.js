@@ -14,25 +14,22 @@ const secretKey = process.env.JWT_SECRET || 'your_jwt_secret_fallback'; // Fallb
 app.use(express.json());
 
 // Simplified CORS setup
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
-  // Add your deployed frontend URLs here
-  'https://crispii.netlify.app',
-];
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.warn('❌ Blocked origin by CORS:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+const corsOptions = {
+  origin: [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://crispii.netlify.app",
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
-}));
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions)); // ✅ handle preflight
+
 
 // Serve images
 app.use('/upload/images', express.static(path.join(__dirname, 'upload/images')));
