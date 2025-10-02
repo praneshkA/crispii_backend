@@ -28,8 +28,6 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions)); // ✅ handle preflight
-
 
 // Serve images
 app.use('/upload/images', express.static(path.join(__dirname, 'upload/images')));
@@ -161,6 +159,38 @@ const cartSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 const Cart = mongoose.model('Cart', cartSchema);
+
+
+// Order Schema
+const orderSchema = new mongoose.Schema({
+  orderId: { type: String, required: true, unique: true },
+  userId: { type: String, default: 'guest' },
+  customerDetails: {
+    firstName: { type: String, required: true },
+    lastName: { type: String },
+    address: { type: String, required: true },
+    apartment: { type: String },
+    city: { type: String, required: true },
+    state: { type: String, required: true },
+    pincode: { type: String, required: true },
+    phone: { type: String, required: true },
+  },
+  items: [{
+    productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
+    name: String,
+    image: String,
+    selectedQuantity: String,
+    price: Number,
+    quantity: Number,
+  }],
+  totalAmount: { type: Number, required: true },
+  paymentScreenshot: { type: String }, // Will store base64 or path
+  paymentStatus: { type: String, default: 'pending' }, // pending, verified, rejected
+  orderStatus: { type: String, default: 'processing' }, // processing, shipped, delivered
+  createdAt: { type: Date, default: Date.now },
+});
+
+const Order = mongoose.model('Order', orderSchema);
 
 // Cart APIs (unchanged)
 app.get('/api/products', async (req, res) => {
@@ -296,11 +326,84 @@ app.delete('/api/cart/:userId/clear', async (req, res) => {
   }
 });
 
+app.post('/api/orders', async (req, res) => {
+  try {
+    const { userId, customerDetails, items, totalAmount, paymentScreenshot } = req.body;
+
+    // Validate required fields
+    if (!customerDetails || !items || items.length === 0 || !totalAmount) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing required order information' 
+      });
+    }
+
+    // Generate unique order ID
+    const orderId = 'ORD' + Date.now() + Math.random().toString(36).substr(2, 5).toUpperCase();
+
+    const newOrder = new Order({
+      orderId,
+      userId: userId || 'guest',
+      customerDetails,
+      items,
+      totalAmount,
+      paymentScreenshot,
+      paymentStatus: 'pending',
+      orderStatus: 'processing',
+    });
+
+    await newOrder.save();
+
+    res.status(201).json({ 
+      success: true, 
+      message: 'Order created successfully',
+      orderId: orderId,
+      order: newOrder 
+    });
+  } catch (error) {
+    console.error('Order creation error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Failed to create order' 
+    });
+  }
+});
+
+// Get Order by ID
+app.get('/api/orders/:orderId', async (req, res) => {
+  try {
+    const order = await Order.findOne({ orderId: req.params.orderId });
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+    res.json({ success: true, order });
+  } catch (error) {
+    console.error('Get order error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Get all orders for a user
+app.get('/api/orders/user/:userId', async (req, res) => {
+  try {
+    const orders = await Order.find({ userId: req.params.userId }).sort({ createdAt: -1 });
+    res.json({ success: true, orders });
+  } catch (error) {
+    console.error('Get user orders error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // Global error handler to ensure JSON responses
 app.use((err, req, res, next) => {
   console.error('Server error:', err && err.stack ? err.stack : err);
   const message = process.env.NODE_ENV === 'production' ? 'Internal server error' : (err && (err.message || err.stack) ? (err.message || err.stack) : String(err));
   res.status(500).json({ success: false, message });
+});
+
+// 404 handler for unknown routes
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: 'Not Found' });
 });
 
 // Start server
