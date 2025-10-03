@@ -13,44 +13,61 @@ const orderRoutes = require('./routes/orderRoutes');
 const app = express();
 const port = process.env.PORT || 5000;
 
+// ---------------- CORS CONFIGURATION ----------------
+
+// Default origins (local + deployed frontend)
+const defaultFrontends = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://localhost:5174',
+  'http://192.168.43.29:5173', // Local network IP
+  'https://crispii.netlify.app',
+  'http://crispii.netlify.app'
+];
+
+// Read from env FRONTEND_URLS (comma-separated) or FRONTEND_URL
+const rawFrontends = process.env.FRONTEND_URLS || process.env.FRONTEND_URL || defaultFrontends.join(',');
+const allowedList = rawFrontends.split(',').map(s => s.trim()).filter(Boolean);
+
+// Normalize entries (ensure http/https prefixes are included)
+const normalizedOrigins = allowedList.flatMap(entry => {
+  if (!entry) return [];
+  const e = entry.replace(/\/$/, '');
+  if (/^https?:\/\//i.test(e)) return [e];
+  return [`http://${e}`, `https://${e}`];
+});
+
+// Apply CORS middleware FIRST
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests without origin (mobile apps, curl, Postman, etc.)
+    if (!origin) return callback(null, true);
+    if (normalizedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn('🚫 Blocked by CORS:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200
+}));
+
+// -----------------------------------------------------
+
 // Middleware
-app.use(express.json());
-// Update your parser limits here if you expect large payloads
-// app.use(express.json({ limit: '5mb' }));
+app.use(express.json({ limit: '10mb' }));  
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));  
 
-   const corsOptions = {
-     origin: (origin, callback) => {
-       // Allow requests with no origin (mobile apps, etc.)
-       if (!origin) return callback(null, true);
-       
-       const allowedOrigins = [
-         "http://localhost:5173",
-         "http://127.0.0.1:5173",
-         "http://localhost:3000",
-         "http://127.0.0.1:3000",
-         "https://crispii.netlify.app",
-       ];
-       
-       if (allowedOrigins.includes(origin)) {
-         return callback(null, true);
-       } else {
-         console.warn(`CORS blocked origin: ${origin}`);  // Log for debugging
-         return callback(new Error('Not allowed by CORS'));
-       }
-     },
-     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-     allowedHeaders: ["Content-Type", "Authorization"],
-     credentials: true,
-     optionsSuccessStatus: 200,  // For legacy browsers
-   };
-
-   // Apply CORS FIRST (before other middleware)
-   app.use(cors(corsOptions));
-   
+// Static file serving
 app.use('/upload/images', express.static(path.join(__dirname, 'upload/images')));
 
+// Connect DB
 connectDB();
 
+// Routes
 app.use('/api', authRoutes);
 app.use('/api', productRoutes);
 app.use('/api', cartRoutes);
@@ -64,8 +81,5 @@ app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Not Found' });
 });
 
-app.use(express.json({ limit: '10mb' }));  // Uncomment and increase for large payloads (e.g., files)
-   app.use(express.urlencoded({ extended: true, limit: '10mb' }));  // Add this for form data
-   
-
+// Start server
 app.listen(port, () => console.log(`🚀 Server running on http://localhost:${port}`));
