@@ -9,7 +9,6 @@ const {
 const router = express.Router();
 
 // Admin fetch all orders
-router.get('/orders/all', getAllOrders);
 
 // Order operations
 router.post('/orders', createOrder);
