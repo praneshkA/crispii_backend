@@ -57,6 +57,9 @@ exports.getUserOrders = async (req, res) => {
   }
 
   // Get all orders (for Admin)
+
+
+};
 exports.getAllOrders = async (req, res) => {
   try {
     const orders = await Order.find().sort({ createdAt: -1 });
@@ -64,6 +67,4 @@ exports.getAllOrders = async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
-};
-
 };
