@@ -10,7 +10,8 @@ exports.createOrder = async (req, res) => {
         message: 'Missing required order information' 
       });
     }
-    const orderId = 'ORD' + Date.now() + Math.random().toString(36).substr(2, 5).toUpperCase();
+const orderId = Math.floor(100000 + Math.random() * 900000);
+
 
     const newOrder = new Order({
       orderId,
@@ -54,4 +55,15 @@ exports.getUserOrders = async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
+
+  // Get all orders (for Admin)
+exports.getAllOrders = async (req, res) => {
+  try {
+    const orders = await Order.find().sort({ createdAt: -1 });
+    res.json({ success: true, orders });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 };

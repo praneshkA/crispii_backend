@@ -14,43 +14,38 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 // ---------------- CORS CONFIGURATION ----------------
-
-// Default origins (local + deployed frontend)
-const defaultFrontends = [
+// Allow local dev + production frontend
+const defaultOrigins = [
   'http://localhost:5173',
-  'http://localhost:3000',
   'http://localhost:5174',
-  'http://192.168.43.29:5173', // Local network IP
+  'http://localhost:3000',
   'https://crispii.netlify.app',
   'http://crispii.netlify.app'
 ];
 
-// Read from env FRONTEND_URLS (comma-separated) or FRONTEND_URL
-const rawFrontends = process.env.FRONTEND_URLS || process.env.FRONTEND_URL || defaultFrontends.join(',');
-const allowedList = rawFrontends.split(',').map(s => s.trim()).filter(Boolean);
+const envOrigins = process.env.FRONTEND_URLS
+  ? process.env.FRONTEND_URLS.split(',').map(s => s.trim())
+  : [];
 
-// Normalize entries (ensure http/https prefixes are included)
-const normalizedOrigins = allowedList.flatMap(entry => {
-  if (!entry) return [];
-  const e = entry.replace(/\/$/, '');
-  if (/^https?:\/\//i.test(e)) return [e];
-  return [`http://${e}`, `https://${e}`];
-});
+const allowedOrigins = [...defaultOrigins, ...envOrigins];
 
-// Apply CORS middleware FIRST
+// Apply CORS
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests without origin (mobile apps, curl, Postman, etc.)
+  origin: function(origin, callback) {
+    // allow requests without origin (Postman, curl)
     if (!origin) return callback(null, true);
-    if (normalizedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.warn('🚫 Blocked by CORS:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
+
+    // allow localhost ports dynamically
+    if (/^http:\/\/localhost:\d+$/.test(origin)) return callback(null, true);
+
+    // allow configured origins
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+
+    console.warn('🚫 Blocked by CORS:', origin);
+    return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET','POST','PUT','DELETE','OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   optionsSuccessStatus: 200
 }));
@@ -58,13 +53,13 @@ app.use(cors({
 // -----------------------------------------------------
 
 // Middleware
-app.use(express.json({ limit: '10mb' }));  
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));  
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Static file serving
+// Static files
 app.use('/upload/images', express.static(path.join(__dirname, 'upload/images')));
 
-// Connect DB
+// Connect to MongoDB
 connectDB();
 
 // Routes
@@ -73,13 +68,13 @@ app.use('/api', productRoutes);
 app.use('/api', cartRoutes);
 app.use('/api', orderRoutes);
 
-// Global error handler
-app.use(errorHandler);
-
 // 404 handler
-app.use((req, res) => {
+app.use((req, res, next) => {
   res.status(404).json({ success: false, message: 'Not Found' });
 });
+
+// Global error handler
+app.use(errorHandler);
 
 // Start server
 app.listen(port, () => console.log(`🚀 Server running on http://localhost:${port}`));
