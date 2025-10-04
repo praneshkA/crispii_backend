@@ -3,25 +3,17 @@ const {
   createOrder,
   getOrderById,
   getUserOrders,
-  getAllOrders,
-  updateOrderStatus
+  getAllOrders // <-- import it here
 } = require('../controllers/orderController');
 
 const router = express.Router();
 
-// Create new order
-router.post('/orders', createOrder);
-
-// Get a specific order
-router.get('/orders/:orderId', getOrderById);
-
-// Get all orders of a user
-router.get('/orders/user/:userId', getUserOrders);
-
-// ✅ Admin - get all orders
+// Admin fetch all orders
 router.get('/orders/all', getAllOrders);
 
-// ✅ Admin - update order status
-router.put('/orders/:orderId', updateOrderStatus);
+// Order operations
+router.post('/orders', createOrder);
+router.get('/orders/:orderId', getOrderById);
+router.get('/orders/user/:userId', getUserOrders);
 
 module.exports = router;
