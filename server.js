@@ -75,6 +75,12 @@ app.use((req, res, next) => {
 
 // Global error handler
 app.use(errorHandler);
+const cloudinary = require('cloudinary');
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 // Start server
 app.listen(port, () => console.log(`🚀 Server running on http://localhost:${port}`));
