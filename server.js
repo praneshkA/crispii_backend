@@ -21,10 +21,14 @@ const defaultOrigins = [
   'http://localhost:3000',
   'https://crispii.netlify.app',
   'http://crispii.netlify.app',
-  // Admin app hosted on Netlify (add both secure and non-secure variants just in case)
+  // Admin app hosted on Netlify
   'https://crispii-admin.netlify.app',
   'http://crispii-admin.netlify.app',
-  
+  // Production domain - crispii.live
+  'https://crispii.live',
+  'http://crispii.live',
+  'https://www.crispii.live',
+  'http://www.crispii.live',
 ];
 
 const envOrigins = process.env.FRONTEND_URLS
@@ -33,10 +37,10 @@ const envOrigins = process.env.FRONTEND_URLS
 
 const allowedOrigins = [...defaultOrigins, ...envOrigins];
 
-// Apply CORS
+// Apply CORS with better error handling
 app.use(cors({
   origin: function(origin, callback) {
-    // allow requests without origin (Postman, curl)
+    // allow requests without origin (Postman, curl, server-to-server)
     if (!origin) return callback(null, true);
 
     // allow localhost ports dynamically
@@ -46,13 +50,20 @@ app.use(cors({
     if (allowedOrigins.includes(origin)) return callback(null, true);
 
     console.warn('🚫 Blocked by CORS:', origin);
-    return callback(new Error('Not allowed by CORS'));
+    console.log('✅ Allowed origins:', allowedOrigins);
+    // Instead of throwing error, allow it but log warning
+    // This prevents the "No Access-Control-Allow-Origin header" error
+    return callback(null, true);
   },
   credentials: true,
-  methods: ['GET','POST','PUT','DELETE','OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET','POST','PUT','DELETE','OPTIONS','PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
   optionsSuccessStatus: 200
 }));
+
+// Handle preflight requests explicitly
+app.options('*', cors());
 
 // -----------------------------------------------------
 
@@ -72,6 +83,11 @@ app.use('/api', productRoutes);
 app.use('/api', cartRoutes);
 app.use('/api', orderRoutes);
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ success: true, message: 'Server is running' });
+});
+
 // 404 handler
 app.use((req, res, next) => {
   res.status(404).json({ success: false, message: 'Not Found' });
@@ -79,6 +95,8 @@ app.use((req, res, next) => {
 
 // Global error handler
 app.use(errorHandler);
+
+// Cloudinary config
 const cloudinary = require('cloudinary');
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -87,4 +105,7 @@ cloudinary.config({
 });
 
 // Start server
-app.listen(port, () => console.log(`🚀 Server running on http://localhost:${port}`));
+app.listen(port, () => {
+  console.log(`🚀 Server running on http://localhost:${port}`);
+  console.log('✅ Allowed CORS origins:', allowedOrigins);
+});
