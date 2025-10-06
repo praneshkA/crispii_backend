@@ -37,8 +37,8 @@ const envOrigins = process.env.FRONTEND_URLS
 
 const allowedOrigins = [...defaultOrigins, ...envOrigins];
 
-// Apply CORS with better error handling
-app.use(cors({
+// CORS options
+const corsOptions = {
   origin: function(origin, callback) {
     // allow requests without origin (Postman, curl, server-to-server)
     if (!origin) return callback(null, true);
@@ -51,8 +51,7 @@ app.use(cors({
 
     console.warn('🚫 Blocked by CORS:', origin);
     console.log('✅ Allowed origins:', allowedOrigins);
-    // Instead of throwing error, allow it but log warning
-    // This prevents the "No Access-Control-Allow-Origin header" error
+    // Allow it but log warning
     return callback(null, true);
   },
   credentials: true,
@@ -60,10 +59,10 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
   optionsSuccessStatus: 200
-}));
+};
 
-// Handle preflight requests explicitly
-app.options('*', cors());
+// Apply CORS globally
+app.use(cors(corsOptions));
 
 // -----------------------------------------------------
 
