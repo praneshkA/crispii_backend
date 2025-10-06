@@ -20,7 +20,11 @@ const defaultOrigins = [
   'http://localhost:5174',
   'http://localhost:3000',
   'https://crispii.netlify.app',
-  'http://crispii.netlify.app'
+  'http://crispii.netlify.app',
+  // Admin app hosted on Netlify (add both secure and non-secure variants just in case)
+  'https://crispii-admin.netlify.app',
+  'http://crispii-admin.netlify.app',
+  
 ];
 
 const envOrigins = process.env.FRONTEND_URLS
