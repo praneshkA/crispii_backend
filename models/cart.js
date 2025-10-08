@@ -1,7 +1,8 @@
+//cart.js
 const mongoose = require('mongoose');
 
 const cartItemSchema = new mongoose.Schema({
-  productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+  productId: { type: String, required: true },
   name: String,
   image: String,
   selectedQuantity: String,

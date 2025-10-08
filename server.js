@@ -50,7 +50,6 @@ const corsOptions = {
     if (allowedOrigins.includes(origin)) return callback(null, true);
 
     console.warn('🚫 Blocked by CORS:', origin);
-    console.log('✅ Allowed origins:', allowedOrigins);
     // Allow it but log warning
     return callback(null, true);
   },
@@ -106,5 +105,4 @@ cloudinary.config({
 // Start server
 app.listen(port, () => {
   console.log(`🚀 Server running on http://localhost:${port}`);
-  console.log('✅ Allowed CORS origins:', allowedOrigins);
 });

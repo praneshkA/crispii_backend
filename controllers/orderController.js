@@ -1,3 +1,4 @@
+//ordercontroller
 const Order = require('../models/order');
 
 exports.createOrder = async (req, res) => {
@@ -90,22 +91,39 @@ exports.getAllOrders = async (req, res) => {
 
 exports.updateOrderStatus = async (req, res) => {
   try {
-    const { orderId } = req.params;
-    const { orderStatus } = req.body;
+  const { orderId } = req.params;
+  const { orderStatus, paymentStatus } = req.body;
+  console.log('[Order Update] req.body:', req.body);
 
-    const order = await Order.findOne({ orderId });
-    if (!order) {
-      return res.status(404).json({ success: false, message: 'Order not found' });
-    }
+  const order = await Order.findOne({ orderId });
+  if (!order) {
+    return res.status(404).json({ success: false, message: 'Order not found' });
+  }
 
+  // Debug log
+  console.log('[Order Update] orderId:', orderId, 'paymentStatus received:', paymentStatus, 'orderStatus received:', orderStatus);
+
+  if (typeof orderStatus !== 'undefined') {
     order.orderStatus = orderStatus;
-    order.updatedAt = Date.now();
-    await order.save();
+  }
+  if (Object.prototype.hasOwnProperty.call(req.body, 'paymentStatus')) {
+    order.paymentStatus = paymentStatus;
+    order.markModified('paymentStatus');
+    console.log('[Order Update] paymentStatus set to:', paymentStatus);
+  } else {
+    console.log('[Order Update] paymentStatus NOT present in req.body');
+  }
+  order.updatedAt = Date.now();
+  await order.save();
+  console.log('[Order Update] SAVED order:', order);
 
-    res.json({ 
-      success: true, 
-      message: 'Order status updated successfully',
-      order 
+  // Debug log after save
+  console.log('[Order Update] orderId:', orderId, 'paymentStatus in DB:', order.paymentStatus, 'orderStatus in DB:', order.orderStatus);
+
+  res.json({
+    success: true,
+    message: 'Order status/payment updated successfully',
+    order
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
