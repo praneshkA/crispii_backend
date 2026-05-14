@@ -1,5 +1,6 @@
 //ordercontroller
 const Order = require('../models/order');
+const Product = require('../models/Product');
 
 exports.createOrder = async (req, res) => {
   try {
@@ -22,6 +23,28 @@ exports.createOrder = async (req, res) => {
         message: 'Missing required order information' 
       });
     }
+
+    // CHECK STOCK BEFORE ORDER
+
+for (const item of parsedItems) {
+
+  const product = await Product.findById(item.productId);
+
+  if (!product) {
+    return res.status(404).json({
+      success: false,
+      message: `${item.name} not found`,
+    });
+  }
+
+  if (product.stock < item.quantity) {
+    return res.status(400).json({
+      success: false,
+      message: `${item.name} is out of stock`,
+    });
+  }
+
+}
 
     // Get Cloudinary URL from uploaded file
     const paymentScreenshotUrl = req.file ? req.file.path : null;
@@ -47,6 +70,23 @@ exports.createOrder = async (req, res) => {
     });
 
     await newOrder.save();
+
+    // REDUCE STOCK
+
+for (const item of parsedItems) {
+
+  const product = await Product.findById(item.productId);
+
+  product.stock -= item.quantity;
+
+  if (product.stock <= 0) {
+    product.stock = 0;
+    product.isOutOfStock = true;
+  }
+
+  await product.save();
+
+}
     res.status(201).json({
       success: true,
       message: 'Order created successfully',

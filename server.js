@@ -1,108 +1,215 @@
 require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+
 const connectDB = require('./config/db');
+
 const errorHandler = require('./middlewares/errorHandler');
 
 const authRoutes = require('./routes/authRoutes');
 const productRoutes = require('./routes/productRoutes');
 const cartRoutes = require('./routes/cartRoutes');
 const orderRoutes = require('./routes/orderRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
+
 const port = process.env.PORT || 5000;
 
-// ---------------- CORS CONFIGURATION ----------------
-// Allow local dev + production frontend
+
+
+// ================= CORS CONFIG =================
+
 const defaultOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
   'http://localhost:3000',
+
   'https://crispii.netlify.app',
   'http://crispii.netlify.app',
-  // Admin app hosted on Netlify
+
   'https://crispii-admin.netlify.app',
   'http://crispii-admin.netlify.app',
-  // Production domain - crispii.live
+
   'https://crispii.live',
   'http://crispii.live',
+
   'https://www.crispii.live',
   'http://www.crispii.live',
 ];
 
 const envOrigins = process.env.FRONTEND_URLS
-  ? process.env.FRONTEND_URLS.split(',').map(s => s.trim())
+  ? process.env.FRONTEND_URLS
+      .split(',')
+      .map(origin => origin.trim())
   : [];
 
-const allowedOrigins = [...defaultOrigins, ...envOrigins];
+const allowedOrigins = [
+  ...defaultOrigins,
+  ...envOrigins,
+];
 
-// CORS options
 const corsOptions = {
-  origin: function(origin, callback) {
-    // allow requests without origin (Postman, curl, server-to-server)
-    if (!origin) return callback(null, true);
+  origin: (origin, callback) => {
 
-    // allow localhost ports dynamically
-    if (/^http:\/\/localhost:\d+$/.test(origin)) return callback(null, true);
+    // allow Postman/curl/server-side requests
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    // allow localhost dynamically
+    if (/^http:\/\/localhost:\d+$/.test(origin)) {
+      return callback(null, true);
+    }
 
     // allow configured origins
-    if (allowedOrigins.includes(origin)) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
 
     console.warn('🚫 Blocked by CORS:', origin);
-    // Allow it but log warning
-    return callback(null, true);
+
+    return callback(
+      new Error('Not allowed by CORS')
+    );
   },
+
   credentials: true,
-  methods: ['GET','POST','PUT','DELETE','OPTIONS','PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range'],
-  optionsSuccessStatus: 200
+
+  methods: [
+    'GET',
+    'POST',
+    'PUT',
+    'DELETE',
+    'PATCH',
+    'OPTIONS',
+  ],
+
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+  ],
+
+  exposedHeaders: [
+    'Content-Range',
+    'X-Content-Range',
+  ],
+
+  optionsSuccessStatus: 200,
 };
 
-// Apply CORS globally
 app.use(cors(corsOptions));
 
-// -----------------------------------------------------
 
-// Middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Static files
-app.use('/upload/images', express.static(path.join(__dirname, 'upload/images')));
+// ================= MIDDLEWARE =================
 
-// Connect to MongoDB
-connectDB();
+app.use(express.json({
+  limit: '10mb',
+}));
 
-// Routes
-app.use('/api', authRoutes);
-app.use('/api', productRoutes);
-app.use('/api', cartRoutes);
-app.use('/api', orderRoutes);
+app.use(express.urlencoded({
+  extended: true,
+  limit: '10mb',
+}));
 
-// Health check endpoint
+
+
+// ================= STATIC FILES =================
+
+app.use(
+  '/upload/images',
+  express.static(
+    path.join(__dirname, 'upload/images')
+  )
+);
+
+
+
+// ================= ROUTES =================
+
+app.use('/api/admin', adminRoutes);
+
+app.use('/api/auth', authRoutes);
+
+app.use('/api/products', productRoutes);
+
+app.use('/api/cart', cartRoutes);
+
+app.use('/api/orders', orderRoutes);
+
+
+
+// ================= HEALTH CHECK =================
+
 app.get('/health', (req, res) => {
-  res.status(200).json({ success: true, message: 'Server is running' });
+  res.status(200).json({
+    success: true,
+    message: 'Server is running',
+  });
 });
 
-// 404 handler
-app.use((req, res, next) => {
-  res.status(404).json({ success: false, message: 'Not Found' });
+
+
+// ================= 404 HANDLER =================
+
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: 'Route not found',
+  });
 });
 
-// Global error handler
+
+
+// ================= GLOBAL ERROR HANDLER =================
+
 app.use(errorHandler);
 
-// Cloudinary config
-const cloudinary = require('cloudinary');
+
+
+// ================= CLOUDINARY CONFIG =================
+
+const cloudinary = require('cloudinary').v2;
+
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+
   api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
+
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Start server
-app.listen(port, () => {
-  console.log(`🚀 Server running on http://localhost:${port}`);
-});
+
+
+// ================= START SERVER =================
+
+const startServer = async () => {
+
+  try {
+
+    await connectDB();
+
+    app.listen(port, () => {
+      console.log(
+        `🚀 Server running on http://localhost:${port}`
+      );
+    });
+
+  } catch (error) {
+
+    console.error(
+      '❌ Failed to start server:',
+      error.message
+    );
+
+    process.exit(1);
+
+  }
+
+};
+
+startServer();
