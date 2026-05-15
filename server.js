@@ -14,94 +14,38 @@ const cartRoutes = require('./routes/cartRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 
+const cloudinary = require('cloudinary').v2;
+
 const app = express();
 
 const port = process.env.PORT || 5000;
 
 
 
-// ================= CORS CONFIG =================
+// ================= DATABASE =================
 
-const defaultOrigins = [
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://localhost:3000',
+connectDB();
 
-  'https://crispii.netlify.app',
-  'http://crispii.netlify.app',
 
-  'https://crispii-admin.netlify.app',
-  'http://crispii-admin.netlify.app',
 
-  'https://crispii.live',
-  'http://crispii.live',
+// ================= CLOUDINARY CONFIG =================
 
-  'https://www.crispii.live',
-  'http://www.crispii.live',
-];
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
 
-const envOrigins = process.env.FRONTEND_URLS
-  ? process.env.FRONTEND_URLS
-      .split(',')
-      .map(origin => origin.trim())
-  : [];
+  api_key: process.env.CLOUDINARY_API_KEY,
 
-const allowedOrigins = [
-  ...defaultOrigins,
-  ...envOrigins,
-];
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-const corsOptions = {
-  origin: (origin, callback) => {
 
-    // allow Postman/curl/server-side requests
-    if (!origin) {
-      return callback(null, true);
-    }
 
-    // allow localhost dynamically
-    if (/^http:\/\/localhost:\d+$/.test(origin)) {
-      return callback(null, true);
-    }
+// ================= CORS =================
 
-    // allow configured origins
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-
-    console.warn('🚫 Blocked by CORS:', origin);
-
-    return callback(
-      new Error('Not allowed by CORS')
-    );
-  },
-
+app.use(cors({
+  origin: true,
   credentials: true,
-
-  methods: [
-    'GET',
-    'POST',
-    'PUT',
-    'DELETE',
-    'PATCH',
-    'OPTIONS',
-  ],
-
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'X-Requested-With',
-  ],
-
-  exposedHeaders: [
-    'Content-Range',
-    'X-Content-Range',
-  ],
-
-  optionsSuccessStatus: 200,
-};
-
-app.use(cors(corsOptions));
+}));
 
 
 
@@ -146,10 +90,12 @@ app.use('/api/orders', orderRoutes);
 // ================= HEALTH CHECK =================
 
 app.get('/health', (req, res) => {
+
   res.status(200).json({
     success: true,
     message: 'Server is running',
   });
+
 });
 
 
@@ -157,10 +103,12 @@ app.get('/health', (req, res) => {
 // ================= 404 HANDLER =================
 
 app.use((req, res) => {
+
   res.status(404).json({
     success: false,
     message: 'Route not found',
   });
+
 });
 
 
@@ -171,45 +119,12 @@ app.use(errorHandler);
 
 
 
-// ================= CLOUDINARY CONFIG =================
-
-const cloudinary = require('cloudinary').v2;
-
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-
-  api_key: process.env.CLOUDINARY_API_KEY,
-
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
-
-
 // ================= START SERVER =================
 
-const startServer = async () => {
+app.listen(port, () => {
 
-  try {
+  console.log(
+    `🚀 Server running on port ${port}`
+  );
 
-    await connectDB();
-
-    app.listen(port, () => {
-      console.log(
-        `🚀 Server running on http://localhost:${port}`
-      );
-    });
-
-  } catch (error) {
-
-    console.error(
-      '❌ Failed to start server:',
-      error.message
-    );
-
-    process.exit(1);
-
-  }
-
-};
-
-startServer();
+});
