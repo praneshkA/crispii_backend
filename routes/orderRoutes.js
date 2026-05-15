@@ -1,22 +1,53 @@
 const express = require('express');
+
 const {
   createOrder,
   getOrderById,
   getUserOrders,
   getAllOrders,
-  updateOrderStatus
+  updateOrderStatus,
 } = require('../controllers/orderController');
-const { upload } = require('../middlewares/uploadMiddleware');
+
+const {
+  upload,
+} = require('../middlewares/uploadMiddleware');
 
 const router = express.Router();
 
-// Admin fetch all orders
-router.get('/orders/all', getAllOrders);
 
-// Order operations
-router.post('/orders', upload.single('paymentScreenshot'), createOrder);
-router.get('/orders/:orderId', getOrderById);
-router.get('/orders/user/:userId', getUserOrders);
-router.put('/orders/:orderId', updateOrderStatus);
+
+// ================= GET ALL ORDERS =================
+
+router.get('/all', getAllOrders);
+
+
+
+// ================= CREATE ORDER =================
+
+router.post(
+  '/',
+  upload.single('paymentScreenshot'),
+  createOrder
+);
+
+
+
+// ================= GET ORDER BY ID =================
+
+router.get('/:orderId', getOrderById);
+
+
+
+// ================= GET USER ORDERS =================
+
+router.get('/user/:userId', getUserOrders);
+
+
+
+// ================= UPDATE ORDER =================
+
+router.put('/:orderId', updateOrderStatus);
+
+
 
 module.exports = router;
